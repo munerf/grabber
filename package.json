@@ -15,5 +15,10 @@
   "bugs": {
     "url": "https://github.com/munerf/grabber/issues"
   },
-  "homepage": "https://github.com/munerf/grabber#readme"
+  "homepage": "https://github.com/munerf/grabber#readme",
+  "devDependencies": {
+    "eslint": "^3.9.0",
+    "eslint-config-google": "^0.7.0",
+    "jsdom": "^9.8.3"
+  }
 }
