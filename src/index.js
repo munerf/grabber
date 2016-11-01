@@ -6,7 +6,7 @@ const async = require('async');
 const Converter = require('csvtojson').Converter;
 const converter = new Converter({});
 
-let pool = [];
+let pool = {};
 
 const config = {
   enUS: {url: 'http://us.thefreedictionary.com/', selector: '*[data-src=rHouse] .pron'},
@@ -23,14 +23,14 @@ converter.fromFile('test/input.csv', function(err, inputs) {
      },
   function(err) {
     if(!err) {
-      console.log('complete');
+      console.log('complete!');
     } else {
       console.log('Something has failed  with errors');
     }
   });
 });
 
-function fetchLanguageResult(languageConfig, input, callback) {
+function fetchLanguageResult(languageConfig, input, language, key, callback) {
   jsdom.env(`${languageConfig.url}${encodeURIComponent(input)}`,
            ['http://code.jquery.com/jquery.js'],
            function(err, window) {
@@ -38,7 +38,13 @@ function fetchLanguageResult(languageConfig, input, callback) {
              if(text.length > 0) {
                console.log('Requesting', input,
                            'and the result is:', text[0].innerHTML);
-                           pool.push(text[0].innerHTML);
+                           let value = pool[key];
+                           if(!value){
+                             value = {};
+                           }
+                           value[language] = text[0].innerHTML;
+                           pool[key] = value;
+                           //pool.push(text[0].innerHTML);
                             return callback();
              }else {
                console.log('Failed ->', input);
@@ -50,16 +56,16 @@ function fetchLanguageResult(languageConfig, input, callback) {
 function fetchResults(config, input, callback) {
   let languages = Object.keys(input);
 
-  async.each(languages, function(language, callback) {
+  async.eachLimit(languages, 1, function(language, callback) {
     let languageConfig = config[language];
     let word = input[language];
-    fetchLanguageResult(languageConfig, word, callback);
+    fetchLanguageResult(languageConfig, word, language, input['ptPT'], callback);
   }, function(err) {
     if(!err) {
       console.log('complete');
       console.log(pool);
     } else {
-      console.log('Something has failed  with errors');
+      console.log('Something has failed with errors');
     }
   });
 }
