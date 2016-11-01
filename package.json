@@ -4,6 +4,7 @@
   "description": "Module to collect search results from a website based on a jQuery selector",
   "main": "index.js",
   "scripts": {
+    "start": "babel-node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -15,5 +16,21 @@
   "bugs": {
     "url": "https://github.com/munerf/grabber/issues"
   },
-  "homepage": "https://github.com/munerf/grabber#readme"
+  "homepage": "https://github.com/munerf/grabber#readme",
+  "devDependencies": {
+    "babel-cli": "^6.10.1",
+    "babel-eslint": "^6.0.2",
+    "babel-plugin-transform-async-to-module-method": "^6.5.2",
+    "babel-preset-es2015-node4": "^2.1.0",
+    "babel-preset-stage-2": "^6.5.0",
+    "babel-register": "^6.3.13",
+    "csvtojson": "^1.0.3",
+    "eslint": "^3.9.0",
+    "eslint-config-seegno": "^8.0.0"
+  },
+  "dependencies": {
+    "async": "^2.1.2",
+    "bluebird": "^3.4.6",
+    "jsdom": "^9.8.3"
+  }
 }
