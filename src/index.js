@@ -1,71 +1,68 @@
 'use strict';
 
+/**
+ * Module dependencies.
+ */
+
+const { Converter } = require('csvtojson');
+const Promise = require('bluebird');
 const jsdom = require('jsdom');
-const async = require('async');
 
-const Converter = require('csvtojson').Converter;
-const converter = new Converter({});
+/**
+ * Promisify modules.
+ */
 
-let pool = {};
+Promise.promisifyAll(jsdom);
+Promise.promisifyAll(Converter.prototype);
+
+/**
+ * Instances.
+ */
 
 const config = {
-  enUS: {url: 'http://us.thefreedictionary.com/', selector: '*[data-src=rHouse] .pron'},
-  enGB: {url: 'http://en.thefreedictionary.com/', selector: '*[data-src=hc_dict] .pron'},
-  ptPT: {url: 'http://pt.thefreedictionary.com/', selector: '*[data-src=kdict] .pron'},
-  esES: {url: 'http://es.thefreedictionary.com/', selector: '*[data-src=kdict] .pron'},
-  deDE: {url: 'http://de.thefreedictionary.com/', selector: '*[data-src=kdict] .pron'},
+  deDE: { selector: '*[data-src=kdict] .pron', url: 'http://de.thefreedictionary.com/' },
+  enGB: { selector: '*[data-src=hc_dict] .pron', url: 'http://en.thefreedictionary.com/' },
+  enUS: { selector: '*[data-src=rHouse] .pron', url: 'http://us.thefreedictionary.com/' },
+  esES: { selector: '*[data-src=kdict] .pron', url: 'http://es.thefreedictionary.com/' },
+  ptPT: { selector: '*[data-src=kdict] .pron', url: 'http://pt.thefreedictionary.com/' }
 };
 
-converter.fromFile('test/input.csv', function(err, inputs) {
-  async.each(inputs,
-    function(input, callback) {
-      const cfg = config; return fetchResults(cfg, input, callback);
-     },
-  function(err) {
-    if(!err) {
-      console.log('complete!');
-    } else {
-      console.log('Something has failed  with errors');
-    }
-  });
-});
+/**
+ * Grab languages from inputs.
+ */
 
-function fetchLanguageResult(languageConfig, input, language, key, callback) {
-  jsdom.env(`${languageConfig.url}${encodeURIComponent(input)}`,
-           ['http://code.jquery.com/jquery.js'],
-           function(err, window) {
-             let text = window.$(languageConfig.selector);
-             if(text.length > 0) {
-               console.log('Requesting', input,
-                           'and the result is:', text[0].innerHTML);
-                           let value = pool[key];
-                           if(!value){
-                             value = {};
-                           }
-                           value[language] = text[0].innerHTML;
-                           pool[key] = value;
-                           //pool.push(text[0].innerHTML);
-                            return callback();
-             }else {
-               console.log('Failed ->', input);
-               callback('Something went wrong');
-             }
-           });
+async function grab() {
+  const inputs = await new Converter({}).fromFileAsync('src/input.csv');
+  const results = {};
+
+  for (const input of inputs) {
+    for (const language in config) {
+      const { url, selector } = config[language];
+      const word = input[language];
+      const window = await jsdom.envAsync(`${url}${word}`, ['http://code.jquery.com/jquery.js']);
+      const text = window.$(selector);
+
+      if (text.length === 0) {
+        console.error(`Could not retrieve ${language} translation for ${word}`);
+
+        continue;
+      }
+
+      results[language] = text[0].innerHTML;
+
+      console.log(`Found ${language} translation for ${word}: ${text[0].innerHTML}`);
+    }
+  }
+
+  return results;
 }
 
-function fetchResults(config, input, callback) {
-  let languages = Object.keys(input);
+/**
+ * Main entry point.
+ */
 
-  async.eachLimit(languages, 1, function(language, callback) {
-    let languageConfig = config[language];
-    let word = input[language];
-    fetchLanguageResult(languageConfig, word, language, input['ptPT'], callback);
-  }, function(err) {
-    if(!err) {
-      console.log('complete');
-      console.log(pool);
-    } else {
-      console.log('Something has failed with errors');
-    }
-  });
-}
+grab()
+  .then(results => {
+    console.log(`Retrieved ${Object.keys(results).length} results`);
+  })
+  .catch(e => console.error(e));
