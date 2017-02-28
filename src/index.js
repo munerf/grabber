@@ -7,6 +7,10 @@
 const { Converter } = require('csvtojson');
 const Promise = require('bluebird');
 const jsdom = require('jsdom');
+const sleep = require('sleep-promise');
+const fs = require('fs');
+const db = require('diskdb');
+const dbname = 'words';
 
 /**
  * Promisify modules.
@@ -14,6 +18,7 @@ const jsdom = require('jsdom');
 
 Promise.promisifyAll(jsdom);
 Promise.promisifyAll(Converter.prototype);
+Promise.promisifyAll(sleep);
 
 /**
  * Instances.
@@ -28,30 +33,55 @@ const config = {
 };
 
 /**
+ * Inserts or updates record in db
+ */
+function persist(value, collection) {
+  const query = {
+    ptPT: value.ptPT
+  };
+
+  const options = {
+    multi: false,
+    upsert: true
+  };
+
+  db[collection].update(query, value, options);
+}
+
+/**
  * Grab languages from inputs.
  */
 
 async function grab() {
   const inputs = await new Converter({}).fromFileAsync('src/input.csv');
-  const results = {};
+  const results = [];
+
+  db.connect('.', [dbname]);
 
   for (const input of inputs) {
     for (const language in config) {
       const { url, selector } = config[language];
-      const word = input[language];
+      const word = encodeURIComponent(input[language]);
       const window = await jsdom.envAsync(`${url}${word}`, ['http://code.jquery.com/jquery.js']);
       const text = window.$(selector);
 
       if (text.length === 0) {
-        console.error(`Could not retrieve ${language} translation for ${word}`);
+        console.error(`Could not retrieve ${language} translation for ${word} request is ${url}${word}`);
 
         continue;
       }
+      input.translation = input.translation || {};
+      input.translation[language] = text[0].innerHTML;
+      results.push(input);
+      persist(input, dbname);
 
-      results[language] = text[0].innerHTML;
-
+      if (word === undefined) {
+        console.log(`Word ${word}, input: ${JSON.stringify(input)}, language: ${language}`);
+      }
       console.log(`Found ${language} translation for ${word}: ${text[0].innerHTML}`);
+      await sleep(5000);
     }
+    await sleep(5000);
   }
 
   return results;
@@ -63,6 +93,7 @@ async function grab() {
 
 grab()
   .then(results => {
-    console.log(`Retrieved ${Object.keys(results).length} results`);
+    console.log(`Retrieved ${results.length} results`);
+    fs.writeFileSync('/tmp/output.json', JSON.stringify(results), 'utf-8');
   })
   .catch(e => console.error(e));
